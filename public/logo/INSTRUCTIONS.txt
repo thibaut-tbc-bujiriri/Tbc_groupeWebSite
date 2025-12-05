@@ -1,0 +1,27 @@
+═══════════════════════════════════════════════════════════════════
+         INSTRUCTIONS : Ajouter votre logo
+═══════════════════════════════════════════════════════════════════
+
+1. PLACEZ votre logo dans ce dossier : public/logo/
+
+2. RENOMMEZ votre logo en : logo.png
+   (ou logo.svg, logo.jpg selon le format)
+
+3. Le logo sera automatiquement affiché :
+   ✓ Dans le Header (en haut à gauche)
+   ✓ Dans le Footer
+   ✓ Comme favicon (icône de l'onglet)
+
+═══════════════════════════════════════════════════════════════════
+
+FORMATS ACCEPTÉS :
+- PNG (recommandé pour transparence)
+- SVG (recommandé pour qualité vectorielle)
+- JPG (si pas de transparence)
+
+TAILLE RECOMMANDÉE :
+- Logo Header : 150-200px de largeur
+- Favicon : 32x32px ou 64x64px
+
+═══════════════════════════════════════════════════════════════════
+

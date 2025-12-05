@@ -1,0 +1,31 @@
+═══════════════════════════════════════════════════════════════════
+    🔴 IMPORTANT : LISEZ-MOI POUR AJOUTER VOTRE PHOTO
+═══════════════════════════════════════════════════════════════════
+
+MÉTHODE TRÈS SIMPLE :
+
+1️⃣  Trouvez votre photo sur votre ordinateur
+
+2️⃣  COPIEZ votre photo (Ctrl+C ou Clic droit > Copier)
+
+3️⃣  COLLEZ votre photo dans CE DOSSIER (public/images/)
+    (Clic droit > Coller ou Ctrl+V)
+
+4️⃣  RENOMMEZ votre photo en : thibaut-profile.jpg
+    (Clic droit sur la photo > Renommer)
+
+5️⃣  Retournez sur votre site et appuyez sur F5 pour recharger
+
+═══════════════════════════════════════════════════════════════════
+
+VOTRE PHOTO APPARAÎTRA AUTOMATIQUEMENT DANS :
+  ✓ Page "Formateur Fullstack" (où vous avez vu l'icône bleue)
+  ✓ Page "À propos" (section Fondateur)
+
+═══════════════════════════════════════════════════════════════════
+
+CHEMIN COMPLET DU DOSSIER :
+C:\Users\Thibaut\OneDrive\Documents\TBC_GROUPE\public\images\
+
+═══════════════════════════════════════════════════════════════════
+

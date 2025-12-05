@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════════════════
+   INSTRUCTIONS RAPIDES : Ajouter votre photo de profil
+═══════════════════════════════════════════════════════════════════
+
+1. OUVREZ le dossier : public/images/
+
+2. PLACEZ votre photo dans ce dossier
+
+3. RENOMMEZ votre photo en : thibaut-profile.jpg
+
+4. FORMAT accepté : .jpg, .jpeg, .png ou .webp
+
+5. LANCEZ le serveur : npm run dev
+
+6. ALLEZ sur la page "Formateur" pour voir votre photo !
+
+═══════════════════════════════════════════════════════════════════
+
+CHEMIN COMPLET :
+C:\Users\Thibaut\OneDrive\Documents\TBC_GROUPE\public\images\thibaut-profile.jpg
+
+═══════════════════════════════════════════════════════════════════
+
+Votre photo s'affichera automatiquement dans :
+  ✓ Page "Formateur Fullstack" 
+  ✓ Page "À propos" (section Fondateur)
+
+═══════════════════════════════════════════════════════════════════
+

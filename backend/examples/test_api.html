@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API - Tbc Groupe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+        }
+        h2 {
+            color: #1e40af;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1e40af;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test API - Tbc Groupe Backend</h1>
+    
+    <div class="container">
+        <h2>1. Test de connexion</h2>
+        <button onclick="testConnection()">Tester la connexion</button>
+        <pre id="connection-result"></pre>
+    </div>
+
+    <div class="container">
+        <h2>2. Récupérer tous les formateurs</h2>
+        <button onclick="getTrainers()">GET /api/trainers</button>
+        <pre id="trainers-result"></pre>
+    </div>
+
+    <div class="container">
+        <h2>3. Récupérer les services</h2>
+        <button onclick="getServices()">GET /api/services</button>
+        <pre id="services-result"></pre>
+    </div>
+
+    <div class="container">
+        <h2>4. Créer un formateur</h2>
+        <div class="form-group">
+            <label>Nom:</label>
+            <input type="text" id="trainer-name" value="Nouveau Formateur">
+        </div>
+        <div class="form-group">
+            <label>Titre:</label>
+            <input type="text" id="trainer-title" value="Développeur Fullstack">
+        </div>
+        <div class="form-group">
+            <label>Bio:</label>
+            <textarea id="trainer-bio" rows="3">Description du formateur</textarea>
+        </div>
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="trainer-email" value="formateur@example.com">
+        </div>
+        <button onclick="createTrainer()">POST /api/trainers</button>
+        <pre id="create-result"></pre>
+    </div>
+
+    <div class="container">
+        <h2>5. Authentification</h2>
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="auth-email" value="thibauttbcbujiriri@gmail.com">
+        </div>
+        <div class="form-group">
+            <label>Mot de passe:</label>
+            <input type="password" id="auth-password" value="thib@.32a">
+        </div>
+        <button onclick="login()">POST /api/auth (Login)</button>
+        <pre id="auth-result"></pre>
+    </div>
+
+    <div class="container">
+        <h2>6. Envoyer un message de contact</h2>
+        <div class="form-group">
+            <label>Nom:</label>
+            <input type="text" id="contact-name" value="John Doe">
+        </div>
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="contact-email" value="john@example.com">
+        </div>
+        <div class="form-group">
+            <label>Message:</label>
+            <textarea id="contact-message" rows="4">Bonjour, je souhaite en savoir plus sur vos formations.</textarea>
+        </div>
+        <button onclick="sendContact()">POST /api/contact</button>
+        <pre id="contact-result"></pre>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_URL}/api/services`);
+                const data = await response.json();
+                document.getElementById('connection-result').textContent = 
+                    response.ok ? 
+                    '✅ Connexion réussie!\n' + JSON.stringify(data, null, 2) :
+                    '❌ Erreur: ' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('connection-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+
+        async function getTrainers() {
+            try {
+                const response = await fetch(`${API_URL}/api/trainers`);
+                const data = await response.json();
+                document.getElementById('trainers-result').textContent = 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('trainers-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+
+        async function getServices() {
+            try {
+                const response = await fetch(`${API_URL}/api/services`);
+                const data = await response.json();
+                document.getElementById('services-result').textContent = 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('services-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+
+        async function createTrainer() {
+            const data = {
+                name: document.getElementById('trainer-name').value,
+                title: document.getElementById('trainer-title').value,
+                bio: document.getElementById('trainer-bio').value,
+                email: document.getElementById('trainer-email').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/trainers`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                document.getElementById('create-result').textContent = 
+                    JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('create-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+
+        async function login() {
+            const data = {
+                action: 'login',
+                email: document.getElementById('auth-email').value,
+                password: document.getElementById('auth-password').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                document.getElementById('auth-result').textContent = 
+                    JSON.stringify(result, null, 2);
+                
+                if (result.success && result.data && result.data.token) {
+                    localStorage.setItem('authToken', result.data.token);
+                }
+            } catch (error) {
+                document.getElementById('auth-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+
+        async function sendContact() {
+            const data = {
+                name: document.getElementById('contact-name').value,
+                email: document.getElementById('contact-email').value,
+                message: document.getElementById('contact-message').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/contact`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                document.getElementById('contact-result').textContent = 
+                    JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('contact-result').textContent = 
+                    '❌ Erreur: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
+

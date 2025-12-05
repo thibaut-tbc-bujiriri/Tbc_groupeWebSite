@@ -1,0 +1,16 @@
+═══════════════════════════════════════════════════════════════════
+                  INSTRUCTIONS SIMPLES
+═══════════════════════════════════════════════════════════════════
+
+1. COPIEZ votre photo dans ce dossier (public/images/)
+
+2. RENOMMEZ votre photo en : thibaut-profile.jpg
+
+3. RAFRAÎCHISSEZ votre navigateur (F5)
+
+C'est tout ! Votre photo apparaîtra automatiquement sur le site.
+
+═══════════════════════════════════════════════════════════════════
+CHEMIN : C:\Users\Thibaut\OneDrive\Documents\TBC_GROUPE\public\images\
+═══════════════════════════════════════════════════════════════════
+

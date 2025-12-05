@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/images/logo-tbc-groupe.ico" />
+    <link rel="apple-touch-icon" href="/images/logo-tbc-groupe.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Tbc Groupe - Développement d'applications web et mobile, référencement SEO et formations en développement web et mobile. Spécialisé en JavaScript." />
+    <meta name="keywords" content="développement web, développement mobile, SEO, formation JavaScript, Goma, RDC, fullstack" />
+    <meta name="author" content="Tbc Groupe" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tbc Groupe - Développement Web & Mobile | Formations JavaScript" />
+    <meta property="og:description" content="Expert en développement d'applications web et mobile, référencement SEO et formations en développement. Spécialisé en environnement JavaScript." />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Tbc Groupe - Développement Web & Mobile" />
+    <meta property="twitter:description" content="Expert en développement d'applications web et mobile, référencement SEO et formations." />
+    
+    <title>Tbc Groupe - Développement Web & Mobile | Formations JavaScript</title>
+    
+    <!-- Script pour initialiser le thème avant le chargement de React -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'light';
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

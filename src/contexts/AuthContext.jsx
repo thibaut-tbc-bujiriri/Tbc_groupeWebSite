@@ -78,14 +78,14 @@ export const AuthProvider = ({ children }) => {
       if (response.ok && data.success) {
         // Vérifier que data.data et data.data.user existent
         if (data.data && data.data.user) {
-          setIsAuthenticated(true)
-          setUser(data.data.user)
-          localStorage.setItem('adminAuth', 'true')
-          localStorage.setItem('adminUser', JSON.stringify(data.data.user))
-          if (data.data.token) {
-            localStorage.setItem('adminToken', data.data.token)
-          }
-          return { success: true, message: 'Connexion réussie!', user: data.data.user }
+        setIsAuthenticated(true)
+        setUser(data.data.user)
+        localStorage.setItem('adminAuth', 'true')
+        localStorage.setItem('adminUser', JSON.stringify(data.data.user))
+        if (data.data.token) {
+          localStorage.setItem('adminToken', data.data.token)
+        }
+        return { success: true, message: 'Connexion réussie!', user: data.data.user }
         } else {
           console.error('❌ Structure de réponse invalide:', data)
           return { 

@@ -3,11 +3,52 @@
  * API pour la gestion du portfolio
  */
 
-require_once '../config/database.php';
-require_once '../config/cors.php';
+// Désactiver l'affichage des erreurs pour éviter qu'elles polluent la réponse JSON
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 
-$database = new Database();
-$db = $database->getConnection();
+// Gestionnaire d'erreurs global
+set_error_handler(function($severity, $message, $file, $line) {
+    if (error_reporting() & $severity) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode([
+            "success" => false,
+            "message" => "Erreur serveur: " . $message
+        ]);
+        exit;
+    }
+    return false;
+});
+
+// Gestionnaire d'exceptions global
+set_exception_handler(function($exception) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "success" => false,
+        "message" => "Erreur serveur: " . $exception->getMessage()
+    ]);
+    exit;
+});
+
+require_once '../config/cors.php';
+require_once '../config/database.php';
+
+try {
+    $database = new Database();
+    $db = $database->getConnection();
+} catch (Exception $e) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "success" => false,
+        "message" => "Erreur de connexion à la base de données",
+        "error" => $e->getMessage()
+    ]);
+    exit;
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -117,48 +158,112 @@ function getProject($db, $id) {
 }
 
 function createProject($db) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    
-    if (!isset($data['title']) || !isset($data['description'])) {
-        http_response_code(400);
-        echo json_encode(["success" => false, "message" => "Titre et description sont requis"]);
-        return;
-    }
-    
-    $query = "INSERT INTO portfolio_projects (title, description, image_url, image_base64, technologies, project_url, github_url, category, is_featured, is_active, display_order) 
-              VALUES (:title, :description, :image_url, :image_base64, :technologies, :project_url, :github_url, :category, :is_featured, 1, :display_order)";
-    
-    $stmt = $db->prepare($query);
-    
-    $technologies = isset($data['technologies']) && is_array($data['technologies']) 
-        ? json_encode($data['technologies']) 
-        : null;
-    
-    $display_order = isset($data['display_order']) ? (int)$data['display_order'] : 0;
-    $is_featured = isset($data['is_featured']) ? (bool)$data['is_featured'] : false;
-    
-    $stmt->bindParam(':title', $data['title']);
-    $stmt->bindParam(':description', $data['description']);
-    $stmt->bindParam(':image_url', $data['image_url'] ?? null);
-    $stmt->bindParam(':image_base64', $data['image_base64'] ?? null);
-    $stmt->bindParam(':technologies', $technologies);
-    $stmt->bindParam(':project_url', $data['project_url'] ?? null);
-    $stmt->bindParam(':github_url', $data['github_url'] ?? null);
-    $stmt->bindParam(':category', $data['category'] ?? null);
-    $stmt->bindParam(':is_featured', $is_featured, PDO::PARAM_BOOL);
-    $stmt->bindParam(':display_order', $display_order);
-    
-    if ($stmt->execute()) {
-        $project_id = $db->lastInsertId();
-        http_response_code(201);
-        echo json_encode([
-            "success" => true,
-            "message" => "Projet créé avec succès",
-            "data" => ["id" => $project_id]
-        ]);
-    } else {
+    try {
+        $json_input = file_get_contents("php://input");
+        if ($json_input === false) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "Impossible de lire les données"]);
+            return;
+        }
+        
+        $data = json_decode($json_input, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "JSON invalide: " . json_last_error_msg()]);
+            return;
+        }
+        
+        if (!$data || !isset($data['title']) || !isset($data['description'])) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "Titre et description sont requis"]);
+            return;
+        }
+        
+        $query = "INSERT INTO portfolio_projects (title, description, image_url, image_base64, technologies, project_url, github_url, category, is_featured, is_active, display_order) 
+                  VALUES (:title, :description, :image_url, :image_base64, :technologies, :project_url, :github_url, :category, :is_featured, 1, :display_order)";
+        
+        $stmt = $db->prepare($query);
+        
+        if (!$stmt) {
+            $errorInfo = $db->errorInfo();
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Erreur de préparation de la requête",
+                "error" => $errorInfo[2] ?? "Erreur inconnue"
+            ]);
+            return;
+        }
+        
+        // Préparer les valeurs dans des variables pour bindParam
+        $title = trim($data['title']);
+        $description = trim($data['description']);
+        $image_url = isset($data['image_url']) && !empty(trim($data['image_url'])) ? trim($data['image_url']) : null;
+        $image_base64 = isset($data['image_base64']) && !empty(trim($data['image_base64'])) ? trim($data['image_base64']) : null;
+        
+        // Valider la taille de l'image base64 (max ~5MB en base64 = ~3.75MB en binaire)
+        if ($image_base64 && strlen($image_base64) > 7000000) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "L'image est trop grande (max 5MB)"]);
+            return;
+        }
+        
+        $technologies = null;
+        if (isset($data['technologies']) && is_array($data['technologies']) && !empty($data['technologies'])) {
+            $technologies = json_encode($data['technologies']);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "message" => "Format de technologies invalide"]);
+                return;
+            }
+        }
+        
+        $project_url = isset($data['project_url']) && !empty(trim($data['project_url'])) ? trim($data['project_url']) : null;
+        $github_url = isset($data['github_url']) && !empty(trim($data['github_url'])) ? trim($data['github_url']) : null;
+        $category = isset($data['category']) && !empty(trim($data['category'])) ? trim($data['category']) : null;
+        $is_featured = isset($data['is_featured']) ? (bool)$data['is_featured'] : false;
+        $display_order = isset($data['display_order']) ? (int)$data['display_order'] : 0;
+        
+        $stmt->bindParam(':title', $title);
+        $stmt->bindParam(':description', $description);
+        $stmt->bindParam(':image_url', $image_url);
+        $stmt->bindParam(':image_base64', $image_base64);
+        $stmt->bindParam(':technologies', $technologies);
+        $stmt->bindParam(':project_url', $project_url);
+        $stmt->bindParam(':github_url', $github_url);
+        $stmt->bindParam(':category', $category);
+        $stmt->bindParam(':is_featured', $is_featured, PDO::PARAM_BOOL);
+        $stmt->bindParam(':display_order', $display_order, PDO::PARAM_INT);
+        
+        if ($stmt->execute()) {
+            $project_id = $db->lastInsertId();
+            http_response_code(201);
+            echo json_encode([
+                "success" => true,
+                "message" => "Projet créé avec succès",
+                "data" => ["id" => $project_id]
+            ]);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Erreur lors de la création du projet",
+                "error" => $errorInfo[2] ?? "Erreur inconnue"
+            ]);
+        }
+    } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(["success" => false, "message" => "Erreur lors de la création du projet"]);
+        echo json_encode([
+            "success" => false,
+            "message" => "Erreur serveur: " . $e->getMessage()
+        ]);
+    } catch (Error $e) {
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "message" => "Erreur serveur: " . $e->getMessage()
+        ]);
     }
 }
 

@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { Users, Mail, Phone, BookOpen, Plus, Trash2, X, Save, LogOut, Upload, Image } from 'lucide-react'
-import { getTrainers, addTrainer, deleteTrainer } from '../data/trainersData'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+
+const API_BASE_URL = 'http://localhost:8080/Tbc_Groupe/backend'
 
 const Trainers = () => {
   const { isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
   const [trainers, setTrainers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [isAdminMode, setIsAdminMode] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [imageErrors, setImageErrors] = useState({})
@@ -19,15 +21,63 @@ const Trainers = () => {
     name: '',
     title: '',
     bio: '',
-    bioExtended: '',
-    image: '',
+    bio_extended: '',
+    image_base64: '',
     email: '',
     phone: '',
   })
   const [imagePreview, setImagePreview] = useState(null)
 
+  // Charger les formateurs depuis l'API
+  const fetchTrainers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`${API_BASE_URL}/api/trainers`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Transformer les données pour correspondre au format attendu
+        const formattedTrainers = (data.data || []).map(trainer => ({
+          id: trainer.id,
+          name: trainer.name,
+          title: trainer.title,
+          bio: trainer.bio,
+          bioExtended: trainer.bio_extended || '',
+          image: trainer.image_base64 || trainer.image_url || '',
+          image_base64: trainer.image_base64 || null,
+          image_url: trainer.image_url || null,
+          email: trainer.email || '',
+          phone: trainer.phone || '',
+          experiences: trainer.experiences || [],
+          skills: trainer.skills || [],
+          technologies: trainer.technologies || [],
+        }))
+        setTrainers(formattedTrainers)
+      } else {
+        toast.error(data.message || 'Erreur lors du chargement des formateurs')
+        setTrainers([])
+      }
+    } catch (error) {
+      console.error('Error fetching trainers:', error)
+      toast.error('Erreur lors du chargement des formateurs')
+      setTrainers([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    setTrainers(getTrainers())
+    fetchTrainers()
     // Vérifier si l'utilisateur est authentifié et en mode admin
     if (isAuthenticated) {
       const adminMode = localStorage.getItem('adminMode') === 'true'
@@ -38,37 +88,80 @@ const Trainers = () => {
     }
   }, [isAuthenticated])
 
-  const handleAddTrainer = () => {
+  const handleAddTrainer = async () => {
     if (!newTrainer.name || !newTrainer.title || !newTrainer.bio) {
       toast.error('Veuillez remplir au moins le nom, le titre et la bio')
       return
     }
 
-    const updated = addTrainer({
-      ...newTrainer,
-      experiences: [],
-      skills: [],
-      technologies: [],
-    })
-    setTrainers(updated)
-    setNewTrainer({
-      name: '',
-      title: '',
-      bio: '',
-      bioExtended: '',
-      image: '',
-      email: '',
-      phone: '',
-    })
-    handleCloseForm()
-    toast.success('Formateur ajouté avec succès!')
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/trainers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newTrainer.name,
+          title: newTrainer.title,
+          bio: newTrainer.bio,
+          bio_extended: newTrainer.bio_extended || '',
+          image_base64: newTrainer.image_base64 || null,
+          email: newTrainer.email || null,
+          phone: newTrainer.phone || null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast.success('Formateur ajouté avec succès!')
+        setNewTrainer({
+          name: '',
+          title: '',
+          bio: '',
+          bio_extended: '',
+          image_base64: '',
+          email: '',
+          phone: '',
+        })
+        setImagePreview(null)
+        handleCloseForm()
+        fetchTrainers() // Recharger les formateurs depuis l'API
+      } else {
+        toast.error(data.message || 'Erreur lors de l\'ajout du formateur')
+      }
+    } catch (error) {
+      console.error('Error adding trainer:', error)
+      toast.error('Erreur lors de l\'ajout du formateur')
+    }
   }
 
-  const handleDeleteTrainer = (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce formateur ?')) {
-      const updated = deleteTrainer(id)
-      setTrainers(updated)
-      toast.success('Formateur supprimé!')
+  const handleDeleteTrainer = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce formateur ?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/trainers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast.success('Formateur supprimé!')
+        fetchTrainers() // Recharger les formateurs depuis l'API
+      } else {
+        toast.error(data.message || 'Erreur lors de la suppression')
+      }
+    } catch (error) {
+      console.error('Error deleting trainer:', error)
+      toast.error('Erreur lors de la suppression')
     }
   }
 
@@ -115,7 +208,7 @@ const Trainers = () => {
       const reader = new FileReader()
       reader.onloadend = () => {
         const base64String = reader.result
-        setNewTrainer({ ...newTrainer, image: base64String })
+        setNewTrainer({ ...newTrainer, image_base64: base64String })
         setImagePreview(base64String)
         toast.success('Image chargée avec succès')
       }
@@ -127,7 +220,7 @@ const Trainers = () => {
   }
 
   const handleRemoveImage = () => {
-    setNewTrainer({ ...newTrainer, image: '' })
+    setNewTrainer({ ...newTrainer, image_base64: '' })
     setImagePreview(null)
   }
 
@@ -137,8 +230,8 @@ const Trainers = () => {
       name: '',
       title: '',
       bio: '',
-      bioExtended: '',
-      image: '',
+      bio_extended: '',
+      image_base64: '',
       email: '',
       phone: '',
     })
@@ -264,8 +357,8 @@ const Trainers = () => {
                     Bio complète
                   </label>
                   <textarea
-                    value={newTrainer.bioExtended}
-                    onChange={(e) => setNewTrainer({ ...newTrainer, bioExtended: e.target.value })}
+                    value={newTrainer.bio_extended}
+                    onChange={(e) => setNewTrainer({ ...newTrainer, bio_extended: e.target.value })}
                     rows={4}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Description détaillée (optionnel)"
@@ -276,11 +369,11 @@ const Trainers = () => {
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     Photo du formateur
                   </label>
-                  {imagePreview || newTrainer.image ? (
+                      {imagePreview || newTrainer.image_base64 ? (
                     <div>
                       <div className="relative w-full max-w-md h-48 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600 mb-2">
                         <img
-                          src={imagePreview || newTrainer.image}
+                          src={imagePreview || newTrainer.image_base64}
                           alt="Aperçu"
                           className="w-full h-full object-cover"
                         />
@@ -393,7 +486,14 @@ const Trainers = () => {
             </div>
           )}
 
-          {trainers.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400 text-lg">
+                Chargement des formateurs...
+              </p>
+            </div>
+          ) : trainers.length === 0 ? (
             <div className="text-center py-12">
               <Users className="mx-auto mb-4 text-gray-400" size={64} />
               <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -423,9 +523,9 @@ const Trainers = () => {
                   <div className="relative">
                     {/* Image du formateur */}
                     <div className="h-64 bg-gradient-to-br from-primary-400 to-primary-600 relative">
-                      {trainer.image && !imageErrors[trainer.id] ? (
+                      {(trainer.image || trainer.image_base64) && !imageErrors[trainer.id] ? (
                         <img
-                          src={trainer.image}
+                          src={trainer.image_base64 || trainer.image}
                           alt={trainer.name}
                           className="w-full h-full object-cover"
                           onError={() => handleImageError(trainer.id)}

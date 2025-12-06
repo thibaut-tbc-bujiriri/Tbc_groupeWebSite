@@ -26,6 +26,15 @@ function extractIdFromUri($resourceName) {
             return (int)$nextPart;
         }
     }
+    
+    // Méthode alternative : chercher le dernier élément numérique dans l'URL
+    // Utile pour les ressources avec tirets comme "training-programs"
+    for ($i = count($uri_parts) - 1; $i >= 0; $i--) {
+        if (is_numeric($uri_parts[$i])) {
+            return (int)$uri_parts[$i];
+        }
+    }
+    
     return null;
 }
 
@@ -152,17 +161,62 @@ function createProgram($db) {
 }
 
 function updateProgram($db, $id) {
-    $data = json_decode(file_get_contents("php://input"), true);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "ID du programme requis"]);
+        return;
+    }
+    
+    $rawInput = file_get_contents("php://input");
+    $data = json_decode($rawInput, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Données JSON invalides"]);
+        return;
+    }
+    
+    if (!$data) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Aucune donnée fournie"]);
+        return;
+    }
     
     $fields = [];
-    if (isset($data['trainer_id'])) $fields[] = "trainer_id = :trainer_id";
-    if (isset($data['title'])) $fields[] = "title = :title";
-    if (isset($data['description'])) $fields[] = "description = :description";
-    if (isset($data['duration'])) $fields[] = "duration = :duration";
-    if (isset($data['price'])) $fields[] = "price = :price";
-    if (isset($data['icon_name'])) $fields[] = "icon_name = :icon_name";
-    if (isset($data['is_active'])) $fields[] = "is_active = :is_active";
-    if (isset($data['display_order'])) $fields[] = "display_order = :display_order";
+    $params = [];
+    
+    if (isset($data['trainer_id'])) {
+        $fields[] = "trainer_id = :trainer_id";
+        $params[':trainer_id'] = $data['trainer_id'] ? (int)$data['trainer_id'] : null;
+    }
+    if (isset($data['title'])) {
+        $fields[] = "title = :title";
+        $params[':title'] = $data['title'];
+    }
+    if (isset($data['description'])) {
+        $fields[] = "description = :description";
+        $params[':description'] = $data['description'];
+    }
+    if (isset($data['duration'])) {
+        $fields[] = "duration = :duration";
+        $params[':duration'] = $data['duration'];
+    }
+    if (isset($data['price'])) {
+        $fields[] = "price = :price";
+        $params[':price'] = $data['price'] ? (float)$data['price'] : null;
+    }
+    if (isset($data['icon_name'])) {
+        $fields[] = "icon_name = :icon_name";
+        $params[':icon_name'] = $data['icon_name'];
+    }
+    if (isset($data['is_active'])) {
+        $fields[] = "is_active = :is_active";
+        $params[':is_active'] = (bool)$data['is_active'];
+    }
+    if (isset($data['display_order'])) {
+        $fields[] = "display_order = :display_order";
+        $params[':display_order'] = (int)$data['display_order'];
+    }
     
     if (empty($fields)) {
         http_response_code(400);
@@ -173,16 +227,8 @@ function updateProgram($db, $id) {
     $query = "UPDATE training_programs SET " . implode(", ", $fields) . " WHERE id = :id";
     $stmt = $db->prepare($query);
     
-    foreach ($data as $key => $value) {
-        if (in_array($key, ['trainer_id', 'title', 'description', 'duration', 'icon_name'])) {
-            $stmt->bindValue(':' . $key, $value);
-        } elseif ($key === 'price') {
-            $stmt->bindValue(':' . $key, (float)$value);
-        } elseif ($key === 'is_active') {
-            $stmt->bindValue(':' . $key, (bool)$value, PDO::PARAM_BOOL);
-        } elseif ($key === 'display_order') {
-            $stmt->bindValue(':' . $key, (int)$value, PDO::PARAM_INT);
-        }
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
     }
     $stmt->bindParam(':id', $id, PDO::PARAM_INT);
     
@@ -193,8 +239,13 @@ function updateProgram($db, $id) {
             "message" => "Programme mis à jour avec succès"
         ]);
     } else {
+        $errorInfo = $stmt->errorInfo();
         http_response_code(500);
-        echo json_encode(["success" => false, "message" => "Erreur lors de la mise à jour"]);
+        echo json_encode([
+            "success" => false, 
+            "message" => "Erreur lors de la mise à jour",
+            "error" => $errorInfo[2] ?? "Erreur inconnue"
+        ]);
     }
 }
 

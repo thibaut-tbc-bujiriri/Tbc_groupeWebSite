@@ -1,15 +1,16 @@
 # Configuration Apache pour le backend PHP
 RewriteEngine On
 
-# Rediriger les requêtes API avec ID (ex: /api/admins/1) vers le fichier PHP (ex: /api/admins.php)
+# Rediriger les requêtes API avec ID (ex: /api/training-programs/1) vers le fichier PHP (ex: /api/training-programs.php)
+# Cette règle capture aussi les ressources avec tirets
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/([^/]+)/([0-9]+)$ api/$1.php [L,QSA]
+RewriteRule ^api/(.+)/([0-9]+)$ api/$1.php [L,QSA]
 
-# Rediriger les requêtes API sans ID (ex: /api/admins) vers le fichier PHP
+# Rediriger les requêtes API sans ID (ex: /api/training-programs) vers le fichier PHP
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/([^/]+)$ api/$1.php [L,QSA]
+RewriteRule ^api/(.+)$ api/$1.php [L,QSA]
 
 # Protéger les fichiers de configuration
 <FilesMatch "^(config|\.htaccess)">

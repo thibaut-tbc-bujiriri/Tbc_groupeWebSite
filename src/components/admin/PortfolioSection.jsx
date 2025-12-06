@@ -119,18 +119,32 @@ const PortfolioSection = ({ apiBaseUrl }) => {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
+        credentials: 'include',
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { message: `Erreur HTTP ${response.status}` }
+        }
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
+      
       if (data.success) {
         toast.success(editingId ? 'Modifié!' : 'Ajouté!')
         resetForm()
         fetchProjects()
       } else {
-        toast.error(data.message || 'Erreur')
+        toast.error(data.message || 'Erreur lors de la sauvegarde')
       }
     } catch (error) {
-      toast.error('Erreur de connexion')
+      console.error('Error saving project:', error)
+      toast.error(error.message || 'Erreur de connexion')
     }
   }
 

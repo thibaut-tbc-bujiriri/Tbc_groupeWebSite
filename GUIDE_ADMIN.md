@@ -166,3 +166,5 @@ Les images sont stockées en **base64** dans la colonne `image_base64` de la tab
 
 
 
+
+

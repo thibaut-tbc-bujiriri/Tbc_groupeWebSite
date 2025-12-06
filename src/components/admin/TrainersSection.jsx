@@ -116,19 +116,37 @@ const TrainersSection = ({ apiBaseUrl }) => {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
+      // Vérifier si la réponse est valide avant de parser JSON
+      let data;
+      const text = await response.text();
+      try {
+        if (text) {
+          data = JSON.parse(text);
+        } else {
+          throw new Error('Réponse vide du serveur');
+        }
+      } catch (parseError) {
+        console.error('Erreur de parsing JSON:', parseError);
+        console.error('Réponse du serveur:', text);
+        toast.error('Erreur: Réponse invalide du serveur');
+        return;
+      }
+
       if (data.success) {
         toast.success(editingId ? 'Modifié avec succès!' : 'Ajouté avec succès!')
         resetForm()
         fetchTrainers()
       } else {
+        console.error('Erreur de sauvegarde:', data);
         toast.error(data.message || 'Erreur')
       }
     } catch (error) {
-      toast.error('Erreur de connexion')
+      console.error('Erreur de connexion:', error);
+      toast.error('Erreur de connexion: ' + (error.message || 'Erreur inconnue'))
     }
   }
 

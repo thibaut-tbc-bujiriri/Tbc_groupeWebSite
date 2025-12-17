@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Mail, Eye, EyeOff, CheckCircle, Trash2 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { Mail, Trash2, Eye, Check, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { contactApi } from '../../lib/supabaseApi'
+import toast from 'react-hot-toast'
 
-const MessagesSection = ({ apiBaseUrl }) => {
-  const { isSuperAdmin } = useAuth()
+const MessagesSection = () => {
+  const { user, isSuperAdmin } = useAuth()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all') // all, unread, read
+  const [filter, setFilter] = useState('all') // 'all', 'unread', 'read'
   const [selectedMessage, setSelectedMessage] = useState(null)
 
   useEffect(() => {
@@ -17,20 +18,20 @@ const MessagesSection = ({ apiBaseUrl }) => {
   const fetchMessages = async () => {
     try {
       setLoading(true)
-      let url = `${apiBaseUrl}/api/contact`
-      if (filter === 'unread') {
-        url += '?is_read=0'
-      } else if (filter === 'read') {
-        url += '?is_read=1'
-      }
+      let isRead = null
+      if (filter === 'unread') isRead = false
+      if (filter === 'read') isRead = true
       
-      const response = await fetch(url)
-      const data = await response.json()
-      if (data.success) {
-        setMessages(data.data || [])
+      const result = await contactApi.getAll(isRead)
+      
+      if (result.success) {
+        setMessages(result.data || [])
+      } else {
+        toast.error(result.message || 'Erreur lors du chargement')
       }
     } catch (error) {
-      toast.error('Erreur lors du chargement')
+      console.error('Error fetching messages:', error)
+      toast.error(`Erreur: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -38,233 +39,193 @@ const MessagesSection = ({ apiBaseUrl }) => {
 
   const handleMarkAsRead = async (id) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/contact`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mark_read', id }),
-      })
-
-      const data = await response.json()
-      if (data.success) {
+      const result = await contactApi.markAsRead(id, user?.id)
+      if (result.success) {
         toast.success('Marqué comme lu')
         fetchMessages()
         if (selectedMessage?.id === id) {
-          setSelectedMessage(prev => prev ? { ...prev, is_read: true } : null)
+          setSelectedMessage({ ...selectedMessage, is_read: true })
         }
       }
     } catch (error) {
-      toast.error('Erreur')
+      toast.error('Erreur: ' + error.message)
     }
   }
 
-  const handleDeleteMessage = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce message ? Cette action est irréversible.')) {
-      return
-    }
+  const handleDelete = async (id) => {
+    if (!window.confirm('Supprimer ce message ?')) return
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/contact/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Important pour la session
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        toast.success('Message supprimé avec succès')
+      const result = await contactApi.delete(id)
+      if (result.success) {
+        toast.success('Supprimé!')
         fetchMessages()
-        // Si le message supprimé était sélectionné, désélectionner
         if (selectedMessage?.id === id) {
           setSelectedMessage(null)
         }
-      } else {
-        toast.error(data.message || 'Erreur lors de la suppression')
       }
     } catch (error) {
-      toast.error('Erreur lors de la suppression')
-      console.error('Error deleting message:', error)
+      toast.error('Erreur: ' + error.message)
     }
   }
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     })
   }
 
-  const unreadCount = messages.filter(m => !m.is_read).length
-
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg ${
-              filter === 'all'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Tous ({messages.length})
-          </button>
-          <button
-            onClick={() => setFilter('unread')}
-            className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-              filter === 'unread'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            <Mail size={18} />
-            <span>Non lus ({unreadCount})</span>
-          </button>
-          <button
-            onClick={() => setFilter('read')}
-            className={`px-4 py-2 rounded-lg ${
-              filter === 'read'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Lus ({messages.length - unreadCount})
-          </button>
-        </div>
+      {/* Filtres */}
+      <div className="mb-6 flex space-x-4">
+        <button
+          onClick={() => setFilter('all')}
+          className={`px-4 py-2 rounded-lg ${filter === 'all' ? 'bg-primary-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+        >
+          Tous
+        </button>
+        <button
+          onClick={() => setFilter('unread')}
+          className={`px-4 py-2 rounded-lg ${filter === 'unread' ? 'bg-primary-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+        >
+          Non lus
+        </button>
+        <button
+          onClick={() => setFilter('read')}
+          className={`px-4 py-2 rounded-lg ${filter === 'read' ? 'bg-primary-600 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+        >
+          Lus
+        </button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">Chargement...</div>
-      ) : messages.length === 0 ? (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
-          <Mail className="mx-auto mb-4 text-gray-400" size={64} />
-          <p className="text-gray-600 dark:text-gray-400">Aucun message</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Liste des messages */}
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                onClick={() => setSelectedMessage(message)}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 cursor-pointer transition-all ${
-                  selectedMessage?.id === message.id
-                    ? 'ring-2 ring-primary-600'
-                    : 'hover:shadow-xl'
-                } ${!message.is_read ? 'border-l-4 border-primary-600' : ''}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">{message.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{message.email}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {!message.is_read && (
-                      <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded-full">
-                        Nouveau
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">{formatDate(message.created_at)}</span>
-                  </div>
-                </div>
-                {message.subject && (
-                  <p className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{message.subject}</p>
-                )}
-                <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-2">{message.message}</p>
-                {!message.is_read && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleMarkAsRead(message.id)
-                    }}
-                    className="mt-2 text-xs text-primary-600 hover:text-primary-700 flex items-center space-x-1"
-                  >
-                    <CheckCircle size={14} />
-                    <span>Marquer comme lu</span>
-                  </button>
-                )}
-              </div>
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Liste des messages */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-4 border-b dark:border-gray-700">
+            <h3 className="font-bold">Messages ({messages.length})</h3>
           </div>
-
-          {/* Détails du message sélectionné */}
-          {selectedMessage && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sticky top-6">
-                <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    {selectedMessage.name}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">{selectedMessage.email}</p>
-                  {selectedMessage.phone && (
-                    <p className="text-gray-600 dark:text-gray-400">{selectedMessage.phone}</p>
-                  )}
+          
+          {loading ? (
+            <div className="p-8 text-center">Chargement...</div>
+          ) : messages.length === 0 ? (
+            <div className="p-8 text-center">
+              <Mail className="mx-auto mb-4 text-gray-400" size={48} />
+              <p className="text-gray-500">Aucun message</p>
+            </div>
+          ) : (
+            <div className="divide-y dark:divide-gray-700 max-h-[600px] overflow-y-auto">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  onClick={() => setSelectedMessage(message)}
+                  className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    selectedMessage?.id === message.id ? 'bg-gray-100 dark:bg-gray-700' : ''
+                  } ${!message.is_read ? 'border-l-4 border-primary-500' : ''}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-semibold truncate ${!message.is_read ? 'text-primary-600' : ''}`}>
+                        {message.name}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">{message.email}</p>
+                      {message.subject && (
+                        <p className="text-sm font-medium mt-1 truncate">{message.subject}</p>
+                      )}
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                        {message.message}
+                      </p>
+                    </div>
+                    <div className="ml-4 flex flex-col items-end">
+                      <span className="text-xs text-gray-500">{formatDate(message.created_at)}</span>
+                      {!message.is_read && (
+                        <span className="mt-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Détail du message */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+          {selectedMessage ? (
+            <>
+              <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h3 className="font-bold">Détail du message</h3>
+                <div className="flex space-x-2">
                   {!selectedMessage.is_read && (
                     <button
                       onClick={() => handleMarkAsRead(selectedMessage.id)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                      className="p-2 text-green-600 hover:bg-green-100 rounded"
+                      title="Marquer comme lu"
                     >
-                      <CheckCircle size={18} />
-                      <span>Marquer comme lu</span>
+                      <Check size={20} />
                     </button>
                   )}
                   {isSuperAdmin() && (
                     <button
-                      onClick={() => handleDeleteMessage(selectedMessage.id)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      onClick={() => handleDelete(selectedMessage.id)}
+                      className="p-2 text-red-600 hover:bg-red-100 rounded"
+                      title="Supprimer"
                     >
-                      <Trash2 size={18} />
-                      <span>Supprimer</span>
+                      <Trash2 size={20} />
                     </button>
                   )}
+                  <button
+                    onClick={() => setSelectedMessage(null)}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
-
-              <div className="mb-4 pb-4 border-b">
-                <p className="text-sm text-gray-500">{formatDate(selectedMessage.created_at)}</p>
-              </div>
-
-              {selectedMessage.subject && (
+              <div className="p-6">
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Sujet
-                  </label>
-                  <p className="text-gray-900 dark:text-white font-semibold">{selectedMessage.subject}</p>
+                  <label className="text-sm text-gray-500">De:</label>
+                  <p className="font-semibold">{selectedMessage.name}</p>
+                  <p className="text-primary-600">{selectedMessage.email}</p>
+                  {selectedMessage.phone && (
+                    <p className="text-gray-600">{selectedMessage.phone}</p>
+                  )}
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Message
-                </label>
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                  <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                    {selectedMessage.message}
-                  </p>
+                {selectedMessage.subject && (
+                  <div className="mb-4">
+                    <label className="text-sm text-gray-500">Sujet:</label>
+                    <p className="font-semibold">{selectedMessage.subject}</p>
+                  </div>
+                )}
+                <div className="mb-4">
+                  <label className="text-sm text-gray-500">Date:</label>
+                  <p>{formatDate(selectedMessage.created_at)}</p>
                 </div>
-              </div>
-
-              {selectedMessage.is_read && selectedMessage.read_at && (
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-xs text-gray-500">
+                <div>
+                  <label className="text-sm text-gray-500">Message:</label>
+                  <p className="mt-2 whitespace-pre-wrap">{selectedMessage.message}</p>
+                </div>
+                {selectedMessage.is_read && selectedMessage.read_at && (
+                  <div className="mt-4 pt-4 border-t text-sm text-gray-500">
                     Lu le {formatDate(selectedMessage.read_at)}
-                  </p>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center">
+              <Eye className="mx-auto mb-4 text-gray-400" size={48} />
+              <p className="text-gray-500">Sélectionnez un message pour voir les détails</p>
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
 export default MessagesSection
-

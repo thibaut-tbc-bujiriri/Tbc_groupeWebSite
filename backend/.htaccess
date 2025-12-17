@@ -7,10 +7,15 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.+)/([0-9]+)$ api/$1.php [L,QSA]
 
-# Rediriger les requêtes API sans ID (ex: /api/training-programs) vers le fichier PHP
+# Rediriger les requêtes API sans ID (ex: /api/auth) vers le fichier PHP (ex: /api/auth.php)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.+)$ api/$1.php [L,QSA]
+
+# Si index.php est appelé avec /api/*, laisser index.php gérer le routage
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} ^/Tbc_Groupe/backend/index\.php
+RewriteRule ^(.*)$ index.php [L]
 
 # Protéger les fichiers de configuration
 <FilesMatch "^(config|\.htaccess)">

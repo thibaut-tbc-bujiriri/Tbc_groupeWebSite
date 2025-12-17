@@ -3,16 +3,80 @@
  * API pour l'authentification
  */
 
+// Activer l'affichage des erreurs pour le débogage (désactiver en production)
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+// Logger les erreurs pour le débogage
+ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
+
+// Gestionnaire d'erreurs global
+set_error_handler(function($severity, $message, $file, $line) {
+    if (error_reporting() & $severity) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode([
+            "success" => false,
+            "message" => "Erreur serveur",
+            "error" => $message,
+            "file" => basename($file),
+            "line" => $line
+        ]);
+        exit;
+    }
+    return false;
+});
+
+// Gestionnaire d'exceptions global
+set_exception_handler(function($exception) {
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=UTF-8');
+    }
+    echo json_encode([
+        "success" => false,
+        "message" => "Erreur serveur",
+        "error" => $exception->getMessage(),
+        "file" => basename($exception->getFile()),
+        "line" => $exception->getLine()
+    ]);
+    exit;
+});
+
 // Charger CORS en premier
 require_once '../config/cors.php';
 
 // Ensuite démarrer la session
 session_start();
 
-require_once '../config/database.php';
-
-$database = new Database();
-$db = $database->getConnection();
+try {
+    require_once '../config/database.php';
+    $database = new Database();
+    $db = $database->getConnection();
+} catch (Exception $e) {
+    // Logger l'erreur
+    error_log("Auth API - Erreur de connexion DB: " . $e->getMessage());
+    
+    // S'assurer que les headers sont envoyés avant le JSON
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=UTF-8');
+    }
+    
+    echo json_encode([
+        "success" => false,
+        "message" => "Erreur de connexion à la base de données Supabase",
+        "error" => $e->getMessage(),
+        "debug" => [
+            "file" => basename($e->getFile()),
+            "line" => $e->getLine()
+        ]
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -47,42 +111,73 @@ switch ($method) {
  */
 function login($db, $data) {
     if (!isset($data['email']) || !isset($data['password'])) {
-        http_response_code(400);
-        echo json_encode(["success" => false, "message" => "Email et mot de passe requis"]);
+        if (!headers_sent()) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode(["success" => false, "message" => "Email et mot de passe requis"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
-    $query = "SELECT id, email, password_hash, full_name, role, is_active FROM users WHERE email = :email";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':email', $data['email']);
-    $stmt->execute();
-    
-    $user = $stmt->fetch();
+    try {
+        $query = "SELECT id, email, password_hash, full_name, role, is_active FROM users WHERE email = :email";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':email', $data['email']);
+        $stmt->execute();
+        
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Auth API - Erreur SQL: " . $e->getMessage());
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode([
+            "success" => false,
+            "message" => "Erreur lors de la recherche de l'utilisateur",
+            "error" => $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+        return;
+    }
     
     if (!$user) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "message" => "Email ou mot de passe incorrect"]);
+        if (!headers_sent()) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode(["success" => false, "message" => "Email ou mot de passe incorrect"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     if (!$user['is_active']) {
-        http_response_code(403);
-        echo json_encode(["success" => false, "message" => "Compte désactivé"]);
+        if (!headers_sent()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode(["success" => false, "message" => "Compte désactivé"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     // Vérifier le mot de passe
     if (!password_verify($data['password'], $user['password_hash'])) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "message" => "Email ou mot de passe incorrect"]);
+        if (!headers_sent()) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        echo json_encode(["success" => false, "message" => "Email ou mot de passe incorrect"], JSON_UNESCAPED_UNICODE);
         return;
     }
     
     // Mettre à jour la dernière connexion
-    $update_query = "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = :id";
-    $update_stmt = $db->prepare($update_query);
-    $update_stmt->bindParam(':id', $user['id'], PDO::PARAM_INT);
-    $update_stmt->execute();
+    try {
+        $update_query = "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = :id";
+        $update_stmt = $db->prepare($update_query);
+        $update_stmt->bindParam(':id', $user['id'], PDO::PARAM_INT);
+        $update_stmt->execute();
+    } catch (PDOException $e) {
+        // Logger l'erreur mais ne pas bloquer la connexion
+        error_log("Auth API - Erreur lors de la mise à jour last_login: " . $e->getMessage());
+    }
     
     // Générer un token simple (en production, utilisez JWT)
     $token = bin2hex(random_bytes(32));
@@ -92,20 +187,24 @@ function login($db, $data) {
     $_SESSION['user_role'] = $user['role'];
     $_SESSION['token'] = $token;
     
-    http_response_code(200);
+    if (!headers_sent()) {
+        http_response_code(200);
+        header('Content-Type: application/json; charset=UTF-8');
+    }
+    
     echo json_encode([
         "success" => true,
         "message" => "Connexion réussie",
         "data" => [
             "token" => $token,
             "user" => [
-                "id" => $user['id'],
+                "id" => (int)$user['id'],
                 "email" => $user['email'],
                 "full_name" => $user['full_name'],
                 "role" => $user['role']
             ]
         ]
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 /**

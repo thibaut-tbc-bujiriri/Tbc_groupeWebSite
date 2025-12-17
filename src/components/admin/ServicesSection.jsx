@@ -1,22 +1,24 @@
 import { useState, useEffect } from 'react'
 import { Briefcase, Plus, Trash2, Edit2, Save, X } from 'lucide-react'
+import { servicesApi } from '../../lib/supabaseApi'
 import toast from 'react-hot-toast'
 
-const ServicesSection = ({ apiBaseUrl }) => {
+const ServicesSection = () => {
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     icon_name: '',
     features: [],
     technologies: [],
-    display_order: 0,
   })
-  const [newFeature, setNewFeature] = useState('')
-  const [newTech, setNewTech] = useState('')
+
+  const [featuresInput, setFeaturesInput] = useState('')
+  const [technologiesInput, setTechnologiesInput] = useState('')
 
   useEffect(() => {
     fetchServices()
@@ -25,38 +27,16 @@ const ServicesSection = ({ apiBaseUrl }) => {
   const fetchServices = async () => {
     try {
       setLoading(true)
-      const url = `${apiBaseUrl}/api/services`
-      console.log('🔍 Fetching services from:', url)
+      const result = await servicesApi.getAll()
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      console.log('📡 Response status:', response.status, response.statusText)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Response error:', response.status, errorText)
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      console.log('✅ Services data received:', data)
-      
-      if (data.success) {
-        setServices(data.data || [])
-        console.log(`✅ ${data.data?.length || 0} services chargés`)
+      if (result.success) {
+        setServices(result.data || [])
       } else {
-        console.error('❌ API returned success=false:', data)
-        toast.error(data.message || 'Erreur lors du chargement des services')
+        toast.error(result.message || 'Erreur lors du chargement')
       }
     } catch (error) {
-      console.error('❌ Error fetching services:', error)
-      console.error('URL tentée:', `${apiBaseUrl}/api/services`)
-      toast.error(`Erreur: ${error.message}. Vérifiez la console pour plus de détails.`)
+      console.error('Error fetching services:', error)
+      toast.error(`Erreur: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -66,40 +46,6 @@ const ServicesSection = ({ apiBaseUrl }) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const addFeature = () => {
-    if (newFeature.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        features: [...prev.features, newFeature.trim()]
-      }))
-      setNewFeature('')
-    }
-  }
-
-  const removeFeature = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== index)
-    }))
-  }
-
-  const addTechnology = () => {
-    if (newTech.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        technologies: [...prev.technologies, newTech.trim()]
-      }))
-      setNewTech('')
-    }
-  }
-
-  const removeTechnology = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      technologies: prev.technologies.filter((_, i) => i !== index)
-    }))
-  }
-
   const resetForm = () => {
     setFormData({
       title: '',
@@ -107,42 +53,42 @@ const ServicesSection = ({ apiBaseUrl }) => {
       icon_name: '',
       features: [],
       technologies: [],
-      display_order: 0,
     })
-    setNewFeature('')
-    setNewTech('')
+    setFeaturesInput('')
+    setTechnologiesInput('')
     setEditingId(null)
     setShowForm(false)
   }
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.description) {
-      toast.error('Veuillez remplir le titre et la description')
+      toast.error('Veuillez remplir au moins le titre et la description')
       return
     }
 
+    const dataToSend = {
+      ...formData,
+      features: featuresInput ? featuresInput.split('\n').filter(f => f.trim()) : [],
+      technologies: technologiesInput ? technologiesInput.split(',').map(t => t.trim()).filter(t => t) : [],
+    }
+
     try {
-      const url = editingId 
-        ? `${apiBaseUrl}/api/services/${editingId}`
-        : `${apiBaseUrl}/api/services`
-      const method = editingId ? 'PUT' : 'POST'
+      let result
+      if (editingId) {
+        result = await servicesApi.update(editingId, dataToSend)
+      } else {
+        result = await servicesApi.create(dataToSend)
+      }
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        toast.success(editingId ? 'Modifié!' : 'Ajouté!')
+      if (result.success) {
+        toast.success(editingId ? 'Modifié avec succès!' : 'Ajouté avec succès!')
         resetForm()
         fetchServices()
       } else {
-        toast.error(data.message || 'Erreur')
+        toast.error(result.message || 'Erreur')
       }
     } catch (error) {
-      toast.error('Erreur de connexion')
+      toast.error('Erreur: ' + error.message)
     }
   }
 
@@ -151,10 +97,11 @@ const ServicesSection = ({ apiBaseUrl }) => {
       title: service.title || '',
       description: service.description || '',
       icon_name: service.icon_name || '',
-      features: Array.isArray(service.features) ? service.features : [],
-      technologies: Array.isArray(service.technologies) ? service.technologies : [],
-      display_order: service.display_order || 0,
+      features: service.features || [],
+      technologies: service.technologies || [],
     })
+    setFeaturesInput(Array.isArray(service.features) ? service.features.join('\n') : '')
+    setTechnologiesInput(Array.isArray(service.technologies) ? service.technologies.join(', ') : '')
     setEditingId(service.id)
     setShowForm(true)
   }
@@ -163,16 +110,13 @@ const ServicesSection = ({ apiBaseUrl }) => {
     if (!window.confirm('Supprimer ce service ?')) return
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/services/${id}`, {
-        method: 'DELETE',
-      })
-      const data = await response.json()
-      if (data.success) {
+      const result = await servicesApi.delete(id)
+      if (result.success) {
         toast.success('Supprimé!')
         fetchServices()
       }
     } catch (error) {
-      toast.error('Erreur')
+      toast.error('Erreur: ' + error.message)
     }
   }
 
@@ -199,7 +143,7 @@ const ServicesSection = ({ apiBaseUrl }) => {
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold mb-2">Titre *</label>
               <input
@@ -212,89 +156,53 @@ const ServicesSection = ({ apiBaseUrl }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2">Description *</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={4}
-                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-            <div>
               <label className="block text-sm font-semibold mb-2">Icône (nom Lucide)</label>
               <input
                 type="text"
                 name="icon_name"
                 value={formData.icon_name}
                 onChange={handleChange}
+                placeholder="ex: Code, Smartphone, Search"
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                placeholder="Ex: Code, Smartphone"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2">Caractéristiques</label>
-              <div className="flex space-x-2 mb-2">
-                <input
-                  type="text"
-                  value={newFeature}
-                  onChange={(e) => setNewFeature(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addFeature()}
-                  className="flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                  placeholder="Ajouter une caractéristique"
-                />
-                <button onClick={addFeature} className="px-4 py-2 bg-primary-600 text-white rounded-lg">
-                  Ajouter
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.features.map((feature, index) => (
-                  <span key={index} className="bg-primary-100 dark:bg-primary-900 px-3 py-1 rounded-full flex items-center space-x-2">
-                    <span>{feature}</span>
-                    <button onClick={() => removeFeature(index)} className="text-red-600">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2">Technologies</label>
-              <div className="flex space-x-2 mb-2">
-                <input
-                  type="text"
-                  value={newTech}
-                  onChange={(e) => setNewTech(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addTechnology()}
-                  className="flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                  placeholder="Ajouter une technologie"
-                />
-                <button onClick={addTechnology} className="px-4 py-2 bg-primary-600 text-white rounded-lg">
-                  Ajouter
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.technologies.map((tech, index) => (
-                  <span key={index} className="bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full flex items-center space-x-2">
-                    <span>{tech}</span>
-                    <button onClick={() => removeTechnology(index)} className="text-red-600">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2">Ordre d'affichage</label>
-              <input
-                type="number"
-                name="display_order"
-                value={formData.display_order}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold mb-2">Description *</label>
+              <textarea
+                name="description"
+                value={formData.description}
                 onChange={handleChange}
+                rows={3}
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold mb-2">Fonctionnalités (une par ligne)</label>
+              <textarea
+                value={featuresInput}
+                onChange={(e) => setFeaturesInput(e.target.value)}
+                rows={4}
+                placeholder="Applications web responsives&#10;Intégration d'APIs&#10;Optimisation des performances"
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold mb-2">Technologies (séparées par des virgules)</label>
+              <input
+                type="text"
+                value={technologiesInput}
+                onChange={(e) => setTechnologiesInput(e.target.value)}
+                placeholder="React, Node.js, TypeScript"
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
 
           <div className="flex justify-end space-x-4 mt-6">
-            <button onClick={resetForm} className="px-4 py-2 border rounded-lg">Annuler</button>
+            <button onClick={resetForm} className="px-4 py-2 border rounded-lg">
+              Annuler
+            </button>
             <button
               onClick={handleSubmit}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2"
@@ -318,47 +226,48 @@ const ServicesSection = ({ apiBaseUrl }) => {
           {services.map((service) => (
             <div key={service.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold mb-2">{service.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{service.description}</p>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                    <Briefcase className="text-primary-600" size={24} />
+                  </div>
+                  <h3 className="text-xl font-bold">{service.title}</h3>
                 </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleEdit(service)}
-                    className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+                    className="text-blue-600 hover:text-blue-800 p-2"
                   >
                     <Edit2 size={18} />
                   </button>
                   <button
                     onClick={() => handleDelete(service.id)}
-                    className="bg-red-600 text-white p-2 rounded hover:bg-red-700"
+                    className="text-red-600 hover:text-red-800 p-2"
                   >
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
-              {Array.isArray(service.features) && service.features.length > 0 && (
+              <p className="text-gray-600 dark:text-gray-300 mb-4">{service.description}</p>
+              {service.features && service.features.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm font-semibold mb-2">Caractéristiques:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {service.features.map((feature, i) => (
-                      <span key={i} className="bg-primary-100 dark:bg-primary-900 px-2 py-1 rounded text-sm">
-                        {feature}
-                      </span>
+                  <h4 className="font-semibold mb-2">Fonctionnalités:</h4>
+                  <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+                    {service.features.map((feature, index) => (
+                      <li key={index}>{feature}</li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
-              {Array.isArray(service.technologies) && service.technologies.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold mb-2">Technologies:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {service.technologies.map((tech, i) => (
-                      <span key={i} className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-sm">
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
+              {service.technologies && service.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {service.technologies.map((tech, index) => (
+                    <span
+                      key={index}
+                      className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm"
+                    >
+                      {tech}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
@@ -370,4 +279,3 @@ const ServicesSection = ({ apiBaseUrl }) => {
 }
 
 export default ServicesSection
-

@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Wrench, Save, Plus, Trash2, Edit2, X } from 'lucide-react'
+import { Settings, Plus, Trash2, Edit2, Save, X } from 'lucide-react'
+import { settingsApi } from '../../lib/supabaseApi'
 import toast from 'react-hot-toast'
 
-const SettingsSection = ({ apiBaseUrl }) => {
-  const [settings, setSettings] = useState({})
+const SettingsSection = () => {
+  const [settings, setSettings] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingKey, setEditingKey] = useState(null)
+
   const [formData, setFormData] = useState({
     setting_key: '',
     setting_value: '',
-    setting_type: 'text',
     description: '',
+    is_public: false,
   })
 
   useEffect(() => {
@@ -21,28 +23,35 @@ const SettingsSection = ({ apiBaseUrl }) => {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${apiBaseUrl}/api/settings`)
-      const data = await response.json()
-      if (data.success) {
-        setSettings(data.data || {})
+      const result = await settingsApi.getAll()
+      
+      if (result.success) {
+        setSettings(result.data || [])
+      } else {
+        toast.error(result.message || 'Erreur lors du chargement')
       }
     } catch (error) {
-      toast.error('Erreur lors du chargement')
+      console.error('Error fetching settings:', error)
+      toast.error(`Erreur: ${error.message}`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }))
   }
 
   const resetForm = () => {
     setFormData({
       setting_key: '',
       setting_value: '',
-      setting_type: 'text',
       description: '',
+      is_public: false,
     })
     setEditingKey(null)
     setShowForm(false)
@@ -55,82 +64,63 @@ const SettingsSection = ({ apiBaseUrl }) => {
     }
 
     try {
-      const url = editingKey
-        ? `${apiBaseUrl}/api/settings/${editingKey}`
-        : `${apiBaseUrl}/api/settings`
-      const method = editingKey ? 'PUT' : 'POST'
+      const result = await settingsApi.upsert(formData)
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        toast.success(editingKey ? 'Modifié!' : 'Ajouté!')
+      if (result.success) {
+        toast.success(editingKey ? 'Modifié avec succès!' : 'Ajouté avec succès!')
         resetForm()
         fetchSettings()
       } else {
-        toast.error(data.message || 'Erreur')
+        toast.error(result.message || 'Erreur')
       }
     } catch (error) {
-      toast.error('Erreur de connexion')
+      toast.error('Erreur: ' + error.message)
     }
   }
 
-  const handleEdit = (key) => {
-    const setting = settings[key]
-    if (setting) {
-      setFormData({
-        setting_key: setting.setting_key,
-        setting_value: setting.setting_value || '',
-        setting_type: setting.setting_type || 'text',
-        description: setting.description || '',
-      })
-      setEditingKey(key)
-      setShowForm(true)
+  const handleEdit = (setting) => {
+    setFormData({
+      setting_key: setting.setting_key || '',
+      setting_value: setting.setting_value || '',
+      description: setting.description || '',
+      is_public: setting.is_public || false,
+    })
+    setEditingKey(setting.setting_key)
+    setShowForm(true)
+  }
+
+  const handleDelete = async (key) => {
+    if (!window.confirm('Supprimer ce paramètre ?')) return
+
+    try {
+      const result = await settingsApi.delete(key)
+      if (result.success) {
+        toast.success('Supprimé!')
+        fetchSettings()
+      }
+    } catch (error) {
+      toast.error('Erreur: ' + error.message)
     }
   }
 
   const handleQuickEdit = async (key, newValue) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/settings/${key}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ setting_value: newValue }),
+      const setting = settings.find(s => s.setting_key === key)
+      if (!setting) return
+
+      const result = await settingsApi.upsert({
+        ...setting,
+        setting_value: newValue
       })
 
-      const data = await response.json()
-      if (data.success) {
-        toast.success('Modifié!')
+      if (result.success) {
+        toast.success('Mis à jour!')
         fetchSettings()
       }
     } catch (error) {
-      toast.error('Erreur')
+      toast.error('Erreur: ' + error.message)
     }
   }
-
-  const handleDelete = async (key) => {
-    if (!window.confirm(`Supprimer le paramètre "${key}" ?`)) return
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/settings/${key}`, {
-        method: 'DELETE',
-      })
-      const data = await response.json()
-      if (data.success) {
-        toast.success('Supprimé!')
-        fetchSettings()
-      }
-    } catch (error) {
-      toast.error('Erreur')
-    }
-  }
-
-  const settingsArray = Object.values(settings).sort((a, b) => 
-    a.setting_key.localeCompare(b.setting_key)
-  )
 
   return (
     <div>
@@ -155,7 +145,7 @@ const SettingsSection = ({ apiBaseUrl }) => {
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold mb-2">Clé *</label>
               <input
@@ -164,65 +154,51 @@ const SettingsSection = ({ apiBaseUrl }) => {
                 value={formData.setting_key}
                 onChange={handleChange}
                 disabled={!!editingKey}
+                placeholder="ex: site_name, contact_email"
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white disabled:opacity-50"
                 required
               />
-              {editingKey && (
-                <p className="text-xs text-gray-500 mt-1">La clé ne peut pas être modifiée</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-2">Type</label>
-              <select
-                name="setting_type"
-                value={formData.setting_type}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-              >
-                <option value="text">Texte</option>
-                <option value="email">Email</option>
-                <option value="textarea">Texte long</option>
-                <option value="number">Nombre</option>
-                <option value="boolean">Booléen</option>
-              </select>
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2">Valeur *</label>
-              {formData.setting_type === 'textarea' ? (
-                <textarea
-                  name="setting_value"
-                  value={formData.setting_value}
-                  onChange={handleChange}
-                  rows={6}
-                  className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                  required
-                />
-              ) : (
-                <input
-                  type={formData.setting_type === 'number' ? 'number' : 'text'}
-                  name="setting_value"
-                  value={formData.setting_value}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                  required
-                />
-              )}
+              <input
+                type="text"
+                name="setting_value"
+                value={formData.setting_value}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                required
+              />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-semibold mb-2">Description</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                rows={3}
+                rows={2}
+                placeholder="Description de ce paramètre"
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                placeholder="Description du paramètre"
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  name="is_public"
+                  checked={formData.is_public}
+                  onChange={handleChange}
+                  className="rounded"
+                />
+                <span className="text-sm font-semibold">Paramètre public (visible côté client)</span>
+              </label>
             </div>
           </div>
 
           <div className="flex justify-end space-x-4 mt-6">
-            <button onClick={resetForm} className="px-4 py-2 border rounded-lg">Annuler</button>
+            <button onClick={resetForm} className="px-4 py-2 border rounded-lg">
+              Annuler
+            </button>
             <button
               onClick={handleSubmit}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2"
@@ -236,9 +212,9 @@ const SettingsSection = ({ apiBaseUrl }) => {
 
       {loading ? (
         <div className="text-center py-12">Chargement...</div>
-      ) : settingsArray.length === 0 ? (
+      ) : settings.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
-          <Wrench className="mx-auto mb-4 text-gray-400" size={64} />
+          <Settings className="mx-auto mb-4 text-gray-400" size={64} />
           <p className="text-gray-600 dark:text-gray-400">Aucun paramètre</p>
         </div>
       ) : (
@@ -246,54 +222,70 @@ const SettingsSection = ({ apiBaseUrl }) => {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Clé</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Valeur</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Clé
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Valeur
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Public
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {settingsArray.map((setting) => (
+              {settings.map((setting) => (
                 <tr key={setting.setting_key} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="font-mono text-sm font-semibold text-gray-900 dark:text-white">
+                    <code className="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                       {setting.setting_key}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {setting.setting_type || 'text'}
-                    </span>
+                    </code>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-900 dark:text-white">
-                      {setting.setting_value ? (setting.setting_value.length > 100 
-                        ? setting.setting_value.substring(0, 100) + '...' 
-                        : setting.setting_value) 
-                        : '-'}
-                    </span>
+                    <input
+                      type="text"
+                      defaultValue={setting.setting_value}
+                      onBlur={(e) => {
+                        if (e.target.value !== setting.setting_value) {
+                          handleQuickEdit(setting.setting_key, e.target.value)
+                        }
+                      }}
+                      className="w-full px-2 py-1 border rounded text-sm dark:bg-gray-700"
+                    />
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {setting.description || '-'}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {setting.description || '-'}
-                    </span>
+                    {setting.is_public ? (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                        Oui
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                        Non
+                      </span>
+                    )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handleEdit(setting.setting_key)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(setting.setting_key)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <button
+                      onClick={() => handleEdit(setting)}
+                      className="text-blue-600 hover:text-blue-800 p-1 mr-2"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(setting.setting_key)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -306,4 +298,3 @@ const SettingsSection = ({ apiBaseUrl }) => {
 }
 
 export default SettingsSection
-

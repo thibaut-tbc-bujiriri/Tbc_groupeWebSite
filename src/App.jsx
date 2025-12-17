@@ -10,6 +10,7 @@ import Portfolio from './pages/Portfolio'
 import Contact from './pages/Contact'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
+import TestSupabase from './pages/TestSupabase'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/test-supabase" element={<TestSupabase />} />
             <Route path="/" element={<Layout><Home /></Layout>} />
             <Route path="/about" element={<Layout><About /></Layout>} />
             <Route path="/services" element={<Layout><Services /></Layout>} />

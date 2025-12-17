@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Users, Plus, Trash2, Edit2, Save, X, Upload, Image, Mail, Phone } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { trainersApi } from '../../lib/supabaseApi'
 import toast from 'react-hot-toast'
 
-const TrainersSection = ({ apiBaseUrl }) => {
+const TrainersSection = () => {
   const { isSuperAdmin } = useAuth()
   const [trainers, setTrainers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -28,31 +29,15 @@ const TrainersSection = ({ apiBaseUrl }) => {
   const fetchTrainers = async () => {
     try {
       setLoading(true)
-      const url = `${apiBaseUrl}/api/trainers`
-      console.log('🔍 Fetching trainers from:', url)
+      console.log('🔍 Fetching trainers from Supabase...')
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      const result = await trainersApi.getAll()
+      console.log('✅ Trainers data received:', result)
       
-      console.log('📡 Response status:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Response error:', response.status, errorText)
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      console.log('✅ Trainers data received:', data)
-      
-      if (data.success) {
-        setTrainers(data.data || [])
+      if (result.success) {
+        setTrainers(result.data || [])
       } else {
-        toast.error(data.message || 'Erreur lors du chargement')
+        toast.error(result.message || 'Erreur lors du chargement')
       }
     } catch (error) {
       console.error('❌ Error fetching trainers:', error)
@@ -108,45 +93,23 @@ const TrainersSection = ({ apiBaseUrl }) => {
     }
 
     try {
-      const url = editingId 
-        ? `${apiBaseUrl}/api/trainers/${editingId}`
-        : `${apiBaseUrl}/api/trainers`
-      const method = editingId ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      })
-
-      // Vérifier si la réponse est valide avant de parser JSON
-      let data;
-      const text = await response.text();
-      try {
-        if (text) {
-          data = JSON.parse(text);
-        } else {
-          throw new Error('Réponse vide du serveur');
-        }
-      } catch (parseError) {
-        console.error('Erreur de parsing JSON:', parseError);
-        console.error('Réponse du serveur:', text);
-        toast.error('Erreur: Réponse invalide du serveur');
-        return;
+      let result
+      if (editingId) {
+        result = await trainersApi.update(editingId, formData)
+      } else {
+        result = await trainersApi.create(formData)
       }
 
-      if (data.success) {
+      if (result.success) {
         toast.success(editingId ? 'Modifié avec succès!' : 'Ajouté avec succès!')
         resetForm()
         fetchTrainers()
       } else {
-        console.error('Erreur de sauvegarde:', data);
-        toast.error(data.message || 'Erreur')
+        toast.error(result.message || 'Erreur')
       }
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      toast.error('Erreur de connexion: ' + (error.message || 'Erreur inconnue'))
+      console.error('Erreur de sauvegarde:', error)
+      toast.error('Erreur: ' + error.message)
     }
   }
 
@@ -169,16 +132,13 @@ const TrainersSection = ({ apiBaseUrl }) => {
     if (!window.confirm('Supprimer ce formateur ?')) return
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/trainers/${id}`, {
-        method: 'DELETE',
-      })
-      const data = await response.json()
-      if (data.success) {
+      const result = await trainersApi.delete(id)
+      if (result.success) {
         toast.success('Supprimé!')
         fetchTrainers()
       }
     } catch (error) {
-      toast.error('Erreur')
+      toast.error('Erreur: ' + error.message)
     }
   }
 
@@ -386,4 +346,3 @@ const TrainersSection = ({ apiBaseUrl }) => {
 }
 
 export default TrainersSection
-

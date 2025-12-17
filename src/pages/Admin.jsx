@@ -16,8 +16,6 @@ import TrainingProgramsSection from '../components/admin/TrainingProgramsSection
 import SettingsSection from '../components/admin/SettingsSection'
 import AdminsSection from '../components/admin/AdminsSection'
 
-const API_BASE_URL = 'http://localhost:8080/Tbc_Groupe/backend'
-
 const Admin = () => {
   const { isAuthenticated, logout, isSuperAdmin, getUserRole } = useAuth()
   const navigate = useNavigate()
@@ -71,21 +69,21 @@ const Admin = () => {
   const renderSection = () => {
     switch (activeSection) {
       case 'trainers':
-        return <TrainersSection apiBaseUrl={API_BASE_URL} />
+        return <TrainersSection />
       case 'services':
-        return isSuper ? <ServicesSection apiBaseUrl={API_BASE_URL} /> : null
+        return isSuper ? <ServicesSection /> : null
       case 'portfolio':
-        return isSuper ? <PortfolioSection apiBaseUrl={API_BASE_URL} /> : null
+        return isSuper ? <PortfolioSection /> : null
       case 'messages':
-        return <MessagesSection apiBaseUrl={API_BASE_URL} />
+        return <MessagesSection />
       case 'programs':
-        return <TrainingProgramsSection apiBaseUrl={API_BASE_URL} />
+        return <TrainingProgramsSection />
       case 'settings':
-        return isSuper ? <SettingsSection apiBaseUrl={API_BASE_URL} /> : null
+        return isSuper ? <SettingsSection /> : null
       case 'admins':
-        return isSuper ? <AdminsSection apiBaseUrl={API_BASE_URL} /> : null
+        return isSuper ? <AdminsSection /> : null
       default:
-        return <TrainersSection apiBaseUrl={API_BASE_URL} />
+        return <TrainersSection />
     }
   }
 

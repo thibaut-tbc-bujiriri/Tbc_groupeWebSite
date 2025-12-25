@@ -252,7 +252,7 @@ const TrainingProgramsSection = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2">Prix (€)</label>
+              <label className="block text-sm font-semibold mb-2">Prix ($)</label>
               <input
                 type="number"
                 name="price"
@@ -352,7 +352,7 @@ const TrainingProgramsSection = () => {
                   </div>
                 )}
                 {program.price && (
-                  <span className="font-semibold text-primary-600">{program.price}€</span>
+                  <span className="font-semibold text-primary-600">${program.price}</span>
                 )}
               </div>
 

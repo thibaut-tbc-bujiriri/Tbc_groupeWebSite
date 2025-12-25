@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { GraduationCap, Clock, Users, Euro, User, ChevronRight, X } from 'lucide-react'
+import { GraduationCap, Clock, Users, DollarSign, User, ChevronRight, X } from 'lucide-react'
 import { trainingProgramsApi } from '../lib/supabaseApi'
 import { motion } from 'framer-motion'
 
@@ -130,9 +130,9 @@ const Programs = () => {
                       )}
                       {program.price && (
                         <div className="flex items-center space-x-1">
-                          <Euro size={16} />
+                          <DollarSign size={16} />
                           <span className="font-semibold text-primary-600 dark:text-primary-400">
-                            {program.price}
+                            ${program.price}
                           </span>
                         </div>
                       )}
@@ -245,10 +245,10 @@ const Programs = () => {
                 )}
                 {selectedProgram.price && (
                   <div className="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <Euro className="text-primary-600 dark:text-primary-400" size={24} />
+                    <DollarSign className="text-primary-600 dark:text-primary-400" size={24} />
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Prix</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">{selectedProgram.price}€</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">${selectedProgram.price}</p>
                     </div>
                   </div>
                 )}

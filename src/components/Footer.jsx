@@ -92,7 +92,7 @@ const Footer = () => {
                   href="mailto:thibauttbcbujiriri@gmail.com"
                   className="hover:text-primary-400 transition-colors flex items-center space-x-2"
                 >
-                  <span>✉</span>
+                  <i className='bx bxl-gmail text-xl'></i>
                   <span>thibauttbcbujiriri@gmail.com</span>
                 </a>
               </li>
@@ -101,13 +101,13 @@ const Footer = () => {
                   href="tel:+243979823604"
                   className="hover:text-primary-400 transition-colors flex items-center space-x-2"
                 >
-                  <span>📞</span>
+                  <i className='bx bx-phone text-xl'></i>
                   <span>+243 979 823 604</span>
                 </a>
               </li>
-              <li className="text-sm mt-4">
-                <span>📍</span>
-                <span className="ml-2">
+              <li className="text-sm mt-4 flex items-start space-x-2">
+                <i className='bx bx-location-plus text-xl mt-1'></i>
+                <span>
                   Office 2 – Kanisa La Mungu<br />
                   Goma, Nord-Kivu
                 </span>

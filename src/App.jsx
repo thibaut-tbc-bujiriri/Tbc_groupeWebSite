@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import About from './pages/About'
 import Services from './pages/Services'
 import Trainers from './pages/Trainers'
+import Programs from './pages/Programs'
 import Portfolio from './pages/Portfolio'
 import Contact from './pages/Contact'
 import Login from './pages/Login'
@@ -23,6 +24,7 @@ function App() {
             <Route path="/services" element={<Layout><Services /></Layout>} />
             <Route path="/trainers" element={<Layout><Trainers /></Layout>} />
             <Route path="/trainer" element={<Layout><Trainers /></Layout>} />
+            <Route path="/programs" element={<Layout><Programs /></Layout>} />
             <Route path="/portfolio" element={<Layout><Portfolio /></Layout>} />
             <Route path="/contact" element={<Layout><Contact /></Layout>} />
           </Routes>

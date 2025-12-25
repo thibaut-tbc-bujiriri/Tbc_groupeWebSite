@@ -220,3 +220,4 @@ CREATE POLICY "Training programs can be modified" ON training_programs
 -- SET password_hash = 'nouveaumotdepasse' 
 -- WHERE email = 'admin@tbcgroupe.com';
 
+
